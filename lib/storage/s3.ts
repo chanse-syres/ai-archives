@@ -40,9 +40,9 @@ class S3StorageClient {
   }
 
   /**
-   * Store HTML conversation content in S3
+   * Store HTML conversation content in S3 // Comment out and chage?: Store transcript conversation content in S3
    * @param conversationId Unique identifier for the conversation
-   * @param content HTML content to store
+   * @param content HTML content to store // Comment out and change?: Transcript text content to store
    * @returns The S3 key where the content was stored
    */
   public async storeConversation(conversationId: string, content: string): Promise<string> {
@@ -50,14 +50,21 @@ class S3StorageClient {
       throw new Error('S3 client not initialized');
     }
 
-    const key = `conversations/${conversationId}.html`;
+    //const key = `conversations/${conversationId}.html`; // COMMENTED OUT on 03/21 to fix the encoding errors - we can change to .txt if we are storing transcript text only
+    const key = `conversations/${conversationId}.txt`; // ADDED on 03/21 to fix the encoding errors - we can change to .txt if we are storing transcript text only END
 
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucketName,
         Key: key,
         Body: content,
-        ContentType: 'text/html',
+        // ContentType: 'text/html', // Commented out on 03/21 to fix the encoding errors.
+        ContentType: 'text/plain; charset=utf-8', // Added on 03/21 to fix the encoding errors. (For storing transcript text only)
+        // ContentType: 'text/html; charset=utf-8' // Added on 03/21 to fix the encoding errors. (If we have to keep html)
+        
+        // Below is reccommended order. 03/21/2026.
+        // const key = `conversations/${conversationId}.txt`;
+        // ContentType: 'text/plain; charset=utf-8'
       })
     );
 

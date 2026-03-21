@@ -8,6 +8,7 @@ import { randomUUID } from 'crypto';
 import { loadConfig } from '@/lib/config';
 
 let isInitialized = false;
+const SKIP_DB_PERSISTENCE = process.env.SKIP_DB_PERSISTENCE === 'true'; // Added 03/20 for local scraping
 
 /**
  * Initialize services if not already initialized
@@ -16,7 +17,10 @@ async function ensureInitialized() {
   if (!isInitialized) {
     try {
       const config = loadConfig();
-      await dbClient.initialize(config.database);
+      // await dbClient.initialize(config.database); //Commented OUT on 03/20 for local scraping without DB
+      if (!SKIP_DB_PERSISTENCE) { // Commented in on 03/20 for local scraping without DB
+        await dbClient.initialize(config.database); // Commented in on 03/20 for local scraping without DB
+      } //Commented in on 03/20 for local scraping without DB
       s3Client.initialize(config.s3);
       isInitialized = true;
     } catch (error) {
@@ -91,13 +95,25 @@ export async function POST(req: NextRequest) {
       contentKey,
     };
 
-    const record = await createConversationRecord(dbInput);
+    //const record = await createConversationRecord(dbInput); COMMENTED OUT on 03/20 for local scraping without DB
+    let responseUrl: string; // Added on 03/20 for local scraping without DB START
+    let storageMode: 'database+s3' | 's3-only';
+
+    if (SKIP_DB_PERSISTENCE) {
+      responseUrl = await s3Client.getSignedReadUrl(contentKey);
+      storageMode = 's3-only';
+      console.log(`[local-test] Stored conversation ${conversationId} in S3 without DB persistence`);
+    } else {
+      const record = await createConversationRecord(dbInput); // Commented in on 03/20 for local scraping without DB FINISH
 
     // Generate the permalink using the database-generated ID
-    const permalink = `${process.env.NEXT_PUBLIC_BASE_URL}/conversation/${record.id}`;
-
+    // const permalink = `${process.env.NEXT_PUBLIC_BASE_URL}/conversation/${record.id}`; // Commented out on 03/20 for local scraping without DB
+      responseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/conversation/${record.id}`; // Commented in on 03/20 for local scraping without DB start
+      storageMode = 'database+s3'; // Added on 03/20 for local scraping without DB
+    } // commented in on 03/20 for local scraping without DB end
     return NextResponse.json(
-      { url: permalink },
+      // { url: permalink }, // Commented out on 03/20 for local scraping without DB
+      { url: responseUrl, conversationId, contentKey, storageMode }, // Commented in on 03/20 for local scraping without DB
       {
         status: 201,
         headers: {
@@ -129,6 +145,20 @@ export async function GET(req: NextRequest) {
   try {
     // Initialize services on first request
     await ensureInitialized();
+
+    // ADDEDON 03/20 for local scraping without DB - if skipping DB persistence, return empty array with s3-only storage mode
+    if (SKIP_DB_PERSISTENCE) {
+      return NextResponse.json(
+        { conversations: [], storageMode: 's3-only' },
+        {
+          status: 200,
+          headers: {
+            'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+          },
+        }
+      );
+    }
+    // ADDEDON 03/20 for local scraping without DB - if skipping DB persistence, return empty array with s3-only storage mode END
 
     const { searchParams } = new URL(req.url);
     const limitParam = searchParams.get('limit');

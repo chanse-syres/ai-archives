@@ -56,9 +56,15 @@ async function fetchConversationDetail(id: string): Promise<ConversationDetailDa
  * @returns string - Formatted content for display
  */
 function formatConversationContent(content: string): string {
-  // For now, return the content as-is
+  // For now, return the content as-is // COMMENTED OUT ON 03/21 for better formatting - we can implement proper formatting based on the content structure in the future
   // TODO: Implement proper formatting based on the content structure
-  return content;
+  // return content; // COMMENTED OUT ON 03/21 for better formatting - we can implement proper formatting based on the content structure in the future END
+  const escaped = content // Added on 03/21 to fix the encoding errors - we can implement proper formatting based on the content structure in the future
+    .replace(/&/g, '&amp;') //
+    .replace(/</g, '&lt;') //
+    .replace(/>/g, '&gt;'); // Added on 03/21 to fix the encoding errors - we can implement proper formatting based on the content structure in the future END
+
+  return escaped.replace(/\n/g, '<br />');
 }
 
 /**

@@ -27,6 +27,9 @@ interface ConversationCardData {
  */
 async function fetchConversations(): Promise<ConversationRecord[]> {
   try {
+    if (process.env.SKIP_DB_PERSISTENCE === 'true') { // Added on 03/20 for local testing without DB persistence - skip API call and return empty array
+      return [];
+    } // Added on 03/20 for local testing without DB persistence END
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
     const response = await fetch(`${baseUrl}/api/conversation?limit=50`, {
       method: 'GET',

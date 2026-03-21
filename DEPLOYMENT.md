@@ -3,3 +3,7 @@ I Setup Postgres on EC2, setup S3 account to access in the code, created S3 secr
 
 03/05/2026
 Security fundamentals and forensic examination.
+
+03/19/2026
+
+Completing the scraping
