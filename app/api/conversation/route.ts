@@ -6,6 +6,8 @@ import { CreateConversationInput } from '@/lib/db/types';
 import { createConversationRecord, getAllConversationRecords } from '@/lib/db/conversations';
 import { randomUUID } from 'crypto';
 import { loadConfig } from '@/lib/config';
+// import { scrapeMetricsStore } from '@/lib/metrics'; // ADDED ON 03/21 p90 p50 and then commented out on 03/21 for better metrics tracking implementation
+import { getScrapeMetricsLogSummary, scrapeMetricsStore } from '@/lib/metrics';
 
 let isInitialized = false;
 const SKIP_DB_PERSISTENCE = process.env.SKIP_DB_PERSISTENCE === 'true'; // Added 03/20 for local scraping
@@ -63,6 +65,7 @@ export async function OPTIONS() {
  * - 500: { error: string } - Server error
  */
 export async function POST(req: NextRequest) {
+  const requestStartedAt = performance.now(); // ADDED ON 03/21 p90
   try {
     // Initialize services on first request
     await ensureInitialized();
@@ -78,7 +81,9 @@ export async function POST(req: NextRequest) {
 
     // Parse the conversation from HTML
     const html = await file.text();
+    const parseStartedAt = performance.now(); // ADDED ON 03/21 p50
     const conversation = await parseHtmlToConversation(html, model);
+    const parseDurationMs = performance.now() - parseStartedAt; // ADDED ON 03/21 p90 p50
 
     // Generate a unique ID for the conversation
     const conversationId = randomUUID();
@@ -110,10 +115,43 @@ export async function POST(req: NextRequest) {
     // const permalink = `${process.env.NEXT_PUBLIC_BASE_URL}/conversation/${record.id}`; // Commented out on 03/20 for local scraping without DB
       responseUrl = `${process.env.NEXT_PUBLIC_BASE_URL}/conversation/${record.id}`; // Commented in on 03/20 for local scraping without DB start
       storageMode = 'database+s3'; // Added on 03/20 for local scraping without DB
+    
     } // commented in on 03/20 for local scraping without DB end
+
+    // ADDED ON 03/21 for metrics tracking of scraping events - observe the scrape event with relevant metrics
+    const measurement = scrapeMetricsStore.observe({
+      model: conversation.model,
+      sourceHtmlBytes: conversation.sourceHtmlBytes,
+      parseDurationMs,
+      totalDurationMs: performance.now() - requestStartedAt,
+    });
+    const percentileSnapshot = scrapeMetricsStore.snapshot();
+
+    console.info('[scrape-metrics]', {
+      model: measurement.model,
+      sourceHtmlBytes: measurement.sourceHtmlBytes,
+      latestMeasurement: {
+        parseDurationMs: measurement.parseDurationMs,
+        totalDurationMs: measurement.totalDurationMs,
+        recordedAt: measurement.recordedAt,
+      },
+      percentiles: getScrapeMetricsLogSummary(),
+    });
+    // ADDED ON 03/21 for metrics tracking of scraping events - observe the scrape event with relevant metrics END
+
     return NextResponse.json(
       // { url: permalink }, // Commented out on 03/20 for local scraping without DB
-      { url: responseUrl, conversationId, contentKey, storageMode }, // Commented in on 03/20 for local scraping without DB
+      // { url: responseUrl, conversationId, contentKey, storageMode }, // Commented in on 03/20 for local scraping without DB. Later 
+      { // 03/21/26 START
+        url: responseUrl,
+        conversationId,
+        contentKey,
+        storageMode,
+        scrapeMetrics: {
+          latestMeasurement: measurement,
+          percentileSnapshot,
+        },
+      }, // Commented in on 03/20 for local scraping without DB // commented out
       {
         status: 201,
         headers: {
