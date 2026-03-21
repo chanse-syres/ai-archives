@@ -51,7 +51,7 @@ class S3StorageClient {
     }
 
     //const key = `conversations/${conversationId}.html`; // COMMENTED OUT on 03/21 to fix the encoding errors - we can change to .txt if we are storing transcript text only
-    const key = `conversations/${conversationId}.txt`; // ADDED on 03/21 to fix the encoding errors - we can change to .txt if we are storing transcript text only END
+    const key = `conversations/${conversationId}.txt`; // ADDED on 03/21 to fix the encoding errors. we can change to .txt if we are storing transcript text only END
 
     await this.client.send(
       new PutObjectCommand({
